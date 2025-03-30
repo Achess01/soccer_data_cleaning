@@ -73,10 +73,8 @@ class JsonToSqlGenerator:
             return
         # Generar INSERT statements
         for _, row in df_teams.iterrows():
-            insert = f"""
-
-    INSERT INTO team (team_id, type, city, name)
-    VALUES ({row['team_id']}, '{row['type']}', N'{row['city'].replace("'", "''")}', N'{row['name'].replace("'", "''")}')
+            insert = f"""INSERT INTO team (team_id, type, city, name)
+VALUES ({row['team_id']}, '{row['type']}', N'{row['city'].replace("'", "''")}', N'{row['name'].replace("'", "''")}');
 
 """
             self.scripts['teams'].append(insert)
@@ -87,11 +85,8 @@ class JsonToSqlGenerator:
             return
         # Generar INSERT statements
         for _, row in df_areas.iterrows():
-            insert = f"""
-
-    INSERT INTO location_area (location_area_id, name, alpha_3_code, alpha_2_code)
-    VALUES ({row['location_area_id']}, N'{row['name'].replace("'", "''")}', '{row['alpha_3_code']}', '{row['alpha_2_code']}')
-
+            insert = f"""INSERT INTO location_area (location_area_id, name, alpha_3_code, alpha_2_code)
+VALUES ({row['location_area_id']}, N'{row['name'].replace("'", "''")}', '{row['alpha_3_code']}', '{row['alpha_2_code']}');
 """
             self.scripts['areas'].append(insert)
 
@@ -102,10 +97,8 @@ class JsonToSqlGenerator:
 
         # Generar INSERT statements
         for _, row in df_roles.iterrows():
-            insert = f"""
-
-    INSERT INTO role (role_id, code3, name)
-    VALUES ('{row['role_id']}', '{row['code3']}', N'{row['name'].replace("'", "''")}')
+            insert = f"""INSERT INTO role (role_id, code3, name)
+VALUES ('{row['role_id']}', '{row['code3']}', N'{row['name'].replace("'", "''")}');
 """
             self.scripts['roles'].append(insert)
 
@@ -123,8 +116,7 @@ class JsonToSqlGenerator:
             role_code = f"'{row['role']['role_id']}'" if pd.notna(
                 row['role']) else 'NULL'
 
-            insert = f"""
-INSERT INTO player (
+            insert = f"""INSERT INTO player (
     player_id, first_name, middle_name, last_name, short_name, birth_date,
     weight, height, foot, passport_area_id, birth_area_id, role_id,
 )
@@ -141,25 +133,23 @@ VALUES (
     {passport_id},
     {birth_id},
     {role_code},
-)
+);
 """
             self.scripts['players'].append(insert)
 
             if (row['currentTeamId'] is not None and row['currentTeamId'] != "null"):
-                insert_team_player = f"""
-INSERT INTO team_player (
+                insert_team_player = f"""INSERT INTO team_player (
     player_id, team_id, dorsal,
 )
-VALUES ({row['player_id']}, {row['currentTeamId']}, 1)
+VALUES ({row['player_id']}, {row['currentTeamId']}, 1);
 """
                 self.scripts['team_player'].append(insert_team_player)
 
             if (row['currentNationalTeamId'] is not None and row['currentNationalTeamId'] != "null"):
-                insert_team_player = f"""
-INSERT INTO team_player (
+                insert_team_player = f"""INSERT INTO team_player (
     player_id, team_id, dorsal,
 )
-VALUES ({row['player_id']}, {row['currentNationalTeamId']}, 1)
+VALUES ({row['player_id']}, {row['currentNationalTeamId']}, 1);
 """
                 self.scripts['team_player'].append(insert_team_player)
 
@@ -169,4 +159,4 @@ VALUES ({row['player_id']}, {row['currentNationalTeamId']}, 1)
         for entity, script_lines in self.scripts.items():
             if script_lines:  # Solo crear archivo si hay contenido
                 with open(f'sql_scripts/{entity}_inserts.sql', 'w', encoding='utf-8') as f:
-                    f.write('\nGO\n'.join(script_lines))
+                    f.write('\n'.join(script_lines))
