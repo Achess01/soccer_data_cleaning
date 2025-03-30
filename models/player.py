@@ -31,6 +31,9 @@ class Player(BaseModel):
         role = Role.from_json(
             json_data['role']) if 'role' in json_data else None
 
+        if (json_data['currentNationalTeamId'] is None):
+            print(json_data)
+
         return cls(
             player_id=int(json_data.get('wyId')),
             first_name=json_data.get('firstName', ''),
@@ -47,4 +50,3 @@ class Player(BaseModel):
             currentTeamId=json_data.get('currentTeamId', None),
             currentNationalTeamId=json_data.get('currentNationalTeamId', None)
         )
-

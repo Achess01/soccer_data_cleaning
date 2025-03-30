@@ -2,26 +2,27 @@ import json
 import pandas as pd
 from dataclasses import asdict
 from typing import List, Dict
-
-from models.areas import Area
-from models.base_model import BaseModel
-from models.player import Player
-from models.roles import Role
+from models import Player, Team, BaseModel
+from pathlib import Path
 
 
 class JsonToSqlGenerator:
     def __init__(self):
         self.scripts = {
+            'teams': [],
             'areas': [],
             'roles': [],
-            'players': []
+            'players': [],
+            'team_player': []
         }
 
     def load_json_file(self, file_path: str) -> List[Dict]:
         """Carga un archivo JSON y devuelve una lista de diccionarios"""
         with open(file_path, 'r', encoding='utf-8') as file:
-            data = json.load(file)
-        return data if isinstance(data, list) else [data]
+            file_content = file.read()  # Leer todo el contenido como string
+            data = json.loads(file_content)
+
+        return data
 
     def json_to_objects(self, json_data: List[Dict], class_type) -> List[BaseModel]:
         return [class_type.from_json(item) for item in json_data]
@@ -58,6 +59,27 @@ class JsonToSqlGenerator:
 
         print(
             f"Procesados {len(players)} jugadores, {len(df_areas)} áreas y {len(df_roles)} roles")
+
+    def process_teams_file(self, file_path: str):
+        json_data = self.load_json_file(file_path)
+        teams = self.json_to_objects(json_data, Team)
+        df_teams = pd.DataFrame([asdict(t) for t in teams])
+        self._generate_teams_script(df_teams)
+        print(f"Procesados {len(df_teams)} equipos")
+
+    def _generate_teams_script(self, df_teams: pd.DataFrame):
+        """Genera script SQL para áreas"""
+        if df_teams.empty:
+            return
+        # Generar INSERT statements
+        for _, row in df_teams.iterrows():
+            insert = f"""
+
+    INSERT INTO team (team_id, type, city, name)
+    VALUES ({row['team_id']}, '{row['type']}', N'{row['city'].replace("'", "''")}', N'{row['name'].replace("'", "''")}')
+
+"""
+            self.scripts['teams'].append(insert)
 
     def _generate_area_script(self, df_areas: pd.DataFrame):
         """Genera script SQL para áreas"""
@@ -123,7 +145,26 @@ VALUES (
 """
             self.scripts['players'].append(insert)
 
+            if (row['currentTeamId'] is not None and row['currentTeamId'] != "null"):
+                insert_team_player = f"""
+INSERT INTO team_player (
+    player_id, team_id, dorsal,
+)
+VALUES ({row['player_id']}, {row['currentTeamId']}, 1)
+"""
+                self.scripts['team_player'].append(insert_team_player)
+
+            if (row['currentNationalTeamId'] is not None and row['currentNationalTeamId'] != "null"):
+                insert_team_player = f"""
+INSERT INTO team_player (
+    player_id, team_id, dorsal,
+)
+VALUES ({row['player_id']}, {row['currentNationalTeamId']}, 1)
+"""
+                self.scripts['team_player'].append(insert_team_player)
+
     def _save_scripts_to_files(self):
+        Path("sql_scripts").mkdir(parents=True, exist_ok=True)
         """Guarda los scripts SQL en archivos separados"""
         for entity, script_lines in self.scripts.items():
             if script_lines:  # Solo crear archivo si hay contenido
