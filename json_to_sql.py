@@ -2,7 +2,7 @@ import json
 import pandas as pd
 from dataclasses import asdict
 from typing import List, Dict
-from models import Player, Team, BaseModel
+from models import Player, Team, BaseModel, Match
 from pathlib import Path
 
 
@@ -13,8 +13,12 @@ class JsonToSqlGenerator:
             'areas': [],
             'roles': [],
             'players': [],
-            'team_player': []
+            'team_player': [],
+            'matches': []
         }
+
+    def save(self):
+        self._save_scripts_to_files()
 
     def load_json_file(self, file_path: str) -> List[Dict]:
         """Carga un archivo JSON y devuelve una lista de diccionarios"""
@@ -55,7 +59,6 @@ class JsonToSqlGenerator:
         self._generate_player_script(df_players)
 
         # Guardar scripts en archivos
-        self._save_scripts_to_files()
 
         print(
             f"Procesados {len(players)} jugadores, {len(df_areas)} áreas y {len(df_roles)} roles")
@@ -66,6 +69,24 @@ class JsonToSqlGenerator:
         df_teams = pd.DataFrame([asdict(t) for t in teams])
         self._generate_teams_script(df_teams)
         print(f"Procesados {len(df_teams)} equipos")
+
+    def process_matches_file(self, file_path: str):
+        json_data = self.load_json_file(file_path)
+        matches = self.json_to_objects(json_data, Match)
+        df_matches = pd.DataFrame([asdict(t) for t in matches])
+        self._generate_matches_script(df_matches)
+        print(f"Procesados {len(df_matches)} partidos")
+
+    def _generate_matches_script(self, df_teams: pd.DataFrame):
+        """Genera script SQL para áreas"""
+        if df_teams.empty:
+            return
+        # Generar INSERT statements
+        for _, row in df_teams.iterrows():
+            insert = f"""INSERT INTO match (season_competition_id, home_team_id, away_team_id, status, winner_team_id, venue, home_score, away_score)
+VALUES ({row['season_competition_id']}, {row['home_team_id']}, {row['away_team_id']}, '{row['status']}', {row['winner_team_id']}, N'{row['venue'].replace("'", "''")}', {row['home_score']}, {row['away_score']});
+"""
+            self.scripts['matches'].append(insert)
 
     def _generate_teams_script(self, df_teams: pd.DataFrame):
         """Genera script SQL para áreas"""
@@ -156,7 +177,10 @@ VALUES ({row['player_id']}, {row['currentNationalTeamId']}, 1);
     def _save_scripts_to_files(self):
         Path("sql_scripts").mkdir(parents=True, exist_ok=True)
         """Guarda los scripts SQL en archivos separados"""
-        for entity, script_lines in self.scripts.items():
-            if script_lines:  # Solo crear archivo si hay contenido
-                with open(f'sql_scripts/{entity}_inserts.sql', 'w', encoding='utf-8') as f:
-                    f.write('\n'.join(script_lines))
+        inserts = ''
+        for _, script_lines in self.scripts.items():
+            inserts += '\n'.join(script_lines)
+
+        if inserts:  # Solo crear archivo si hay contenido
+            with open(f'sql_scripts/entity_inserts.sql', 'w', encoding='utf-8') as f:
+                f.write(inserts)
